@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>龜兔交換位置遊戲</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+        .game-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        table {
+            border-collapse: collapse;
+        }
+        td {
+            width: 60px;
+            height: 60px;
+            border: 1px solid #ccc;
+            text-align: center;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .number {
+            font-size: 14px;
+            color: #666;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #moves {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        #message {
+            margin-top: 10px;
+            color: red;
+            font-size: 14px;
+        }
+        #success {
+            margin-top: 10px;
+            color: green;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        #setup {
+            margin-bottom: 20px;
+        }
+        #setup input {
+            width: 50px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="instructions">
+            <h2>遊戲目標：</h2>
+            <p>移動最少的次數，讓所有的烏龜與兔子互換位置，也就是讓所有的烏龜都移動到右邊，所有的兔子都移動到左邊。</p>
+            <h2>操作說明：</h2>
+            <ol>
+                <li>只能將動物移動到「空格」中，先按一下你想移動的動物，再按一下你想移動這隻動物去的空格，動物就會自動移動到那個空格去。</li>
+                <li>動物只能移動到「相鄰號碼」的空格，或是「間格1個號碼」的空格中。(例如：5號的兔子只能移動到4號，或是3號與7號。)</li>
+            </ol>
+        </div>
+        <div id="setup">
+            <label for="gridSize">格子數量：</label>
+            <input type="number" id="gridSize" min="3" max="15" step="2" value="7">
+            <button onclick="setupGame()">開始遊戲</button>
+            <p id="setupMessage">最少3格，最多15格，只能設置奇數。</p>
+        </div>
+        <table id="gameBoard">
+            <tr id="numbers"></tr>
+            <tr id="animals"></tr>
+        </table>
+        <button onclick="resetGame()">重新遊戲</button>
+        <div id="moves">移動次數: 0</div>
+        <div id="message"></div>
+        <div id="success"></div>
+    </div>
+
+    <script>
+        let moveCount = 0;
+        let selectedCell = null;
+        let gridSize = 7;
+
+        function setupGame() {
+            const input = document.getElementById('gridSize');
+            const size = parseInt(input.value);
+            if (size >= 3 && size <= 15 && size % 2 === 1) {
+                gridSize = size;
+                initializeGame();
+            } else {
+                alert("請輸入3到15之間的奇數！");
+            }
+        }
+
+        function initializeGame() {
+            const numbers = document.getElementById('numbers');
+            const animals = document.getElementById('animals');
+            numbers.innerHTML = '';
+            animals.innerHTML = '';
+            const middleIndex = Math.floor(gridSize / 2);
+            for (let i = 0; i < gridSize; i++) {
+                const numberCell = document.createElement('td');
+                numberCell.innerHTML = `<div class="number">${i + 1}</div>`;
+                numbers.appendChild(numberCell);
+
+                const animalCell = document.createElement('td');
+                if (i < middleIndex) {
+                    animalCell.textContent = '🐢';
+                } else if (i > middleIndex) {
+                    animalCell.textContent = '🐰';
+                }
+                animalCell.onclick = function() { selectCell(this); };
+                animalCell.dataset.index = i;
+                animals.appendChild(animalCell);
+            }
+            moveCount = 0;
+            updateMoveCount();
+            clearMessage();
+            clearSuccess();
+        }
+
+        function selectCell(cell) {
+            if (selectedCell === null) {
+                if (cell.textContent) {
+                    selectedCell = cell;
+                    cell.style.backgroundColor = '#ffff99';
+                }
+            } else {
+                if (cell !== selectedCell && !cell.textContent) {
+                    const fromIndex = parseInt(selectedCell.dataset.index);
+                    const toIndex = parseInt(cell.dataset.index);
+                    if (isValidMove(fromIndex, toIndex)) {
+                        cell.textContent = selectedCell.textContent;
+                        selectedCell.textContent = '';
+                        selectedCell.style.backgroundColor = '';
+                        selectedCell = null;
+                        moveCount++;
+                        updateMoveCount();
+                        clearMessage();
+                        if (checkGameEnd()) {
+                            showSuccess("恭喜，你成功完成任務了。");
+                        }
+                    } else {
+                        showMessage("只能移動到相鄰號碼的空格，或是間隔1個號碼的空格中。");
+                    }
+                } else {
+                    selectedCell.style.backgroundColor = '';
+                    selectedCell = null;
+                }
+            }
+        }
+
+        function isValidMove(fromIndex, toIndex) {
+            const distance = Math.abs(fromIndex - toIndex);
+            return distance === 1 || distance === 2;
+        }
+
+        function checkGameEnd() {
+            const cells = document.getElementById('animals').children;
+            const middleIndex = Math.floor(gridSize / 2);
+            for (let i = 0; i < middleIndex; i++) {
+                if (cells[i].textContent !== '🐰') return false;
+            }
+            for (let i = middleIndex + 1; i < gridSize; i++) {
+                if (cells[i].textContent !== '🐢') return false;
+            }
+            return cells[middleIndex].textContent === '';
+        }
+
+        function updateMoveCount() {
+            document.getElementById('moves').textContent = `移動次數: ${moveCount}`;
+        }
+
+        function showMessage(msg) {
+            document.getElementById('message').textContent = msg;
+        }
+
+        function clearMessage() {
+            document.getElementById('message').textContent = '';
+        }
+
+        function showSuccess(msg) {
+            document.getElementById('success').textContent = msg;
+        }
+
+        function clearSuccess() {
+            document.getElementById('success').textContent = '';
+        }
+
+        function resetGame() {
+            initializeGame();
+        }
+
+        setupGame();
+    </script>
+</body>
+</html>
